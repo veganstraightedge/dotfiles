@@ -1,1 +1,2 @@
-eval "$(/opt/homebrew/bin/brew shellenv)"
+# Now in .zshrc
+# eval $(/opt/homebrew/bin/brew shellenv)

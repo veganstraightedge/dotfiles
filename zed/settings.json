@@ -17,7 +17,7 @@
 // custom settings, run the `open default settings` command
 // from the command palette or from `Zed` application menu.
 {
-  "assistant": {
+  "agent": {
     "default_model": {
       "provider": "zed.dev",
       "model": "claude-3-7-sonnet-latest"
@@ -47,6 +47,7 @@
     "ss09": true
   },
   "buffer_font_size": 18,
+  "ui_font_size": 18,
 
   "preferred_line_length": 120,
   "soft_wrap": "none",
