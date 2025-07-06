@@ -1,7 +1,6 @@
 # Settings
 # Appearance
 theme                 = 06CD1FB2-A00A-4F8C-97B2-60E131980454
-fontName              = "Inconsolata LGC"
 fontSize              = 18
 tabSize               = 2
 showInvisibles        = true
