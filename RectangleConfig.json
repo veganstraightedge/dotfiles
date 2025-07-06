@@ -2,7 +2,7 @@
   "bundleId" : "com.knollsoft.Rectangle",
   "defaults" : {
     "SUEnableAutomaticChecks" : {
-      "bool" : false
+      "bool" : true
     },
     "allowAnyShortcut" : {
       "bool" : true
@@ -53,7 +53,7 @@
       "bool" : true
     },
     "disabledApps" : {
-
+      "string" : "[\"com.culturedcode.ThingsMac\"]"
     },
     "doubleClickTitleBar" : {
       "int" : 0
@@ -164,7 +164,7 @@
       "bool" : false
     },
     "selectedCycleSizes" : {
-      "int" : 7
+      "int" : 31
     },
     "shortEdgeSnapAreaSize" : {
       "float" : 145
@@ -212,16 +212,16 @@
 
     },
     "todo" : {
-      "int" : 0
+      "int" : 1
     },
     "todoApplication" : {
-
+      "string" : "com.culturedcode.ThingsMac"
     },
     "todoMode" : {
       "bool" : false
     },
     "todoSidebarSide" : {
-      "int" : 1
+      "int" : 2
     },
     "todoSidebarWidth" : {
       "float" : 400
@@ -237,10 +237,6 @@
     }
   },
   "shortcuts" : {
-    "almostMaximize" : {
-      "keyCode" : 3,
-      "modifierFlags" : 1835008
-    },
     "bottomHalf" : {
       "keyCode" : 125,
       "modifierFlags" : 1572864
@@ -255,7 +251,7 @@
     },
     "center" : {
       "keyCode" : 8,
-      "modifierFlags" : 1572864
+      "modifierFlags" : 1703936
     },
     "centerHalf" : {
       "keyCode" : 4,
@@ -285,10 +281,6 @@
       "keyCode" : 123,
       "modifierFlags" : 1835008
     },
-    "reflowTodo" : {
-      "keyCode" : 45,
-      "modifierFlags" : 786432
-    },
     "restore" : {
       "keyCode" : 51,
       "modifierFlags" : 786432
@@ -302,8 +294,8 @@
       "modifierFlags" : 917504
     },
     "toggleTodo" : {
-      "keyCode" : 11,
-      "modifierFlags" : 786432
+      "keyCode" : 49,
+      "modifierFlags" : 1835008
     },
     "topHalf" : {
       "keyCode" : 126,
@@ -318,5 +310,5 @@
       "modifierFlags" : 1310720
     }
   },
-  "version" : "93"
+  "version" : "94"
 }
