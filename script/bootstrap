@@ -18,17 +18,17 @@ SHELL_CONFIG="$HOME/.zshrc"
 touch $SHELL_CONFIG
 
 # Quit Zed.app before running
-echo '==> Create SSH keys (RSA)'
+echo '==> Create SSH keys (Ed25519)'
 osascript -e 'quit app "Zed"'
 
 # Ask the user where they want their RSA key stored
-echo '==> Create SSH keys (RSA)'
-rsa_path=~/.ssh/id_rsa
-rsa_path=${rsa_path:-$default_rsa_path}
+echo '==> Create SSH keys (Ed25519)'
+ed25519_path=~/.ssh/id_ed25519
+ed25519_path=${ed25519_path:-$default_ed25519_path}
 
-# Check if RSA SSH keys already exist
-if [[ -f "$rsa_path" ]]; then
-  echo '==> Found SSH key in $rsa_path'
+# Check if Ed25519 SSH keys already exist
+if [[ -f "$ed25519_path" ]]; then
+  echo '==> Found SSH key in $ed25519_path'
   echo
 else
   # Setup Git/GitHub
@@ -37,7 +37,7 @@ else
 
   # From: https://help.github.com/en/articles/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
   echo '==> Generating SSH key for $github_email …'
-  ssh-keygen -t rsa -b 4096 -C "$github_email"
+  ssh-keygen -t ed25519 -C "$github_email"
   echo
 
   echo '==> Starting ssh-agent in the background…'
@@ -49,12 +49,12 @@ else
 
   # Add SSH key loading to SSH config
   echo '==> Adding SSH config to automatically load SSH keys'
-  grep -qF -- "IdentityFile $rsa_path" ~/.ssh/config || echo "\n\nHost *\n AddKeysToAgent yes\n UseKeychain yes\n IdentityFile $rsa_path\n\n" >> ~/.ssh/config
+  grep -qF -- "IdentityFile $ed25519_path" ~/.ssh/config || echo "\n\nHost *\n AddKeysToAgent yes\n UseKeychain yes\n IdentityFile $ed25519_path\n\n" >> ~/.ssh/config
   echo
 
   # Add SSH private key to the ssh-agent and store passphrase in your keychain
   echo '==> Adding SSH key to ssh-agent and storing passphrase in your keychain'
-  ssh-add -K $rsa_path
+  ssh-add -K $ed25519_path
   echo
 
   echo '==> Your browser will be opened to a GitHub SSH Keys settings page…'
@@ -74,7 +74,7 @@ else
 fi
 
 echo '==> Copying your public SSH key to clipboard…'
-pbcopy < $rsa_path
+pbcopy < $ed25519_path
 echo
 
 # Download strap.sh and run it
@@ -113,10 +113,14 @@ echo $ruby_version > ~/.ruby-version
 # Then, re-source the .zshrc for current user
 echo '==> Adding Ruby version auto-switching to $SHELL_CONFIG'
 
-echo '==> Initializing chruby…'
-# TODO add chruby to .zshrc
-# grep -qF -- 'eval "$(rbenv init -)"' $SHELL_CONFIG || echo '\n# rbenv ruby version auto-switching - inserted by @veganstraightedge\neval "$(rbenv init -)"' >> $SHELL_CONFIG
-echo
+# echo '==> Initializing chruby…'
+# # TODO add these lines to .zshrc
+# # source /opt/homebrew/opt/chruby/share/chruby/chruby.sh
+# # source /opt/homebrew/opt/chruby/share/chruby/auto.sh
+# # ...using this strategy below, i.e. don't re-add it if it's already there!
+# # TODO add chruby to .zshrc
+# # grep -qF -- 'eval "$(rbenv init -)"' $SHELL_CONFIG || echo '\n# rbenv ruby version auto-switching - inserted by @veganstraightedge\neval "$(rbenv init -)"' >> $SHELL_CONFIG
+# echo
 
 # Install Bundler
 echo '==> Installing the Bundler Ruby gem…'
