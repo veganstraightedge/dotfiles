@@ -20,6 +20,7 @@ brew "mas"
 brew "postgresql@17", restart_service: true
 brew "redis",         restart_service: true
 brew "ruby-install"
+brew "wget"
 brew "yamllint"
 brew "yt-dlp"
 
