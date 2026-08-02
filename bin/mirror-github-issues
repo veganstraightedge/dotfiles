@@ -1,0 +1,404 @@
+#!/usr/bin/env ruby
+
+# Mirrors a repo's GitHub issues and pull requests into local markdown, so
+# they're readable (and greppable) with no network.
+#
+#   mirror-github-issues                    # the repo you're standing in
+#   mirror-github-issues --full             # rebuild every file
+#   mirror-github-issues --repo owner/name  # some other repo
+#   mirror-github-issues --out ~/elsewhere  # somewhere other than the default
+#
+# Writes to .github/offline/ inside the current repo; set GITHUB_OFFLINE_DIR to
+# change that default everywhere. Add the folder to .gitignore (or your global
+# ignore file) — it's a local cache, not repo content.
+#
+#   .github/offline/
+#     README.md                                     index, newest first
+#     issues/1867-task-revision-feature.md           open issues
+#     issues/closed/760-blog-pages-need-love.md      closed issues
+#     pulls/1846-marketing-site-pricing.md           open PRs
+#     pulls/closed/1845-marketing-site-about-us.md   merged + closed PRs
+#     images/a1b2c3d4e5f6a7b8.png                    every referenced image
+#
+# Comments are inlined in thread order, and image URLs are rewritten to
+# relative paths so they render offline in any markdown viewer.
+#
+# PR diffs are not mirrored: the code is already in the local clone.
+#
+# Deliberately avoids Ruby 3.4's `it` block parameter, against house style, so
+# the script still runs in repos whose .ruby-version pins something older.
+
+# rubocop:disable Style/OneClassPerFile -- self-contained script, no autoloading
+
+require 'digest'
+require 'fileutils'
+require 'json'
+require 'open3'
+require 'optparse'
+require 'time'
+require 'uri'
+
+class GitHub
+  def initialize(repo)
+    @repo = repo
+  end
+
+  # Paginated GET, flattened: --slurp wraps each page in its own array.
+  def list(path, **params)
+    query = URI.encode_www_form(params.merge(per_page: 100))
+    JSON.parse(capture('api', '--paginate', '--slurp', "repos/#{@repo}/#{path}?#{query}")).flatten
+  end
+
+  def token
+    @token ||= capture('auth', 'token').strip
+  end
+
+  # Resolves owner/name from the working directory's git remote.
+  def self.current_repo
+    output, status = Open3.capture2('gh', 'repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner')
+    raise 'not in a GitHub clone — run inside one, or pass --repo owner/name' unless status.success?
+
+    output.strip
+  end
+
+  private
+
+  def capture(*arguments)
+    output, status = Open3.capture2('gh', *arguments)
+    raise "gh #{arguments.first(2).join(' ')} failed" unless status.success?
+
+    output
+  end
+end
+
+# Downloads GitHub-hosted images and rewrites their URLs to relative paths.
+class Attachments
+  # The query string matters: images on a private repo arrive as
+  # private-user-images.githubusercontent.com/...?jwt=<short-lived token>, and
+  # dropping the jwt turns every download into a 404.
+  IMAGE_URL = %r{
+    https://(?:
+      github\.com/user-attachments/assets/[\w-]+
+      | (?:private-)?user-images\.githubusercontent\.com/[\w/.%-]+
+      | raw\.githubusercontent\.com/[\w/.%-]+
+    )
+    (?:\?[\w.=%&~+-]+)?
+  }x
+
+  EXTENSION_FOR_TYPE = {
+    'application/pdf' => '.pdf',
+    'image/gif'       => '.gif',
+    'image/jpeg'      => '.jpg',
+    'image/png'       => '.png',
+    'image/svg+xml'   => '.svg',
+    'image/webp'      => '.webp'
+  }.freeze
+
+  attr_reader :failures
+
+  def initialize(folder, token)
+    @folder = folder
+    @token = token
+    @paths = {}
+    @failures = []
+  end
+
+  # prefix walks back up to the mirror root from the file being written, which
+  # is one level deeper for closed items.
+  def localize(markdown, prefix)
+    markdown.to_s.gsub(IMAGE_URL) do |url|
+      path = @paths.fetch(url) { @paths[url] = download(url) }
+      path ? "#{prefix}#{path}" : url
+    end
+  end
+
+  def downloaded_count = @paths.values.compact.uniq.size
+
+  private
+
+  def download(url)
+    # Hash the URL without its query so an expiring jwt doesn't defeat the
+    # on-disk cache across runs.
+    name = Digest::SHA256.hexdigest(url.split('?').first)[0, 16]
+    existing = Dir.glob(File.join(@folder, "#{name}.*")).reject { |path| path.end_with?('.part') }.first
+    return relative(existing) if existing
+
+    FileUtils.mkdir_p(@folder)
+    partial = File.join(@folder, "#{name}.part")
+    content_type, status = Open3.capture2(
+      'curl', '-sfL', '--retry', '3', '--retry-delay', '1', '--retry-all-errors',
+      *credentials_for(url),
+      # curl's own format syntax, not Ruby's
+      '-w', '%{content_type}', '-o', partial, url # rubocop:disable Style/FormatStringToken
+    )
+
+    unless status.success?
+      FileUtils.rm_f(partial)
+      @failures << url
+      return nil
+    end
+
+    destination = File.join(@folder, "#{name}#{extension_for(content_type, url)}")
+    File.rename(partial, destination)
+    relative(destination)
+  end
+
+  # Attachments on github.com are gated by the API token (404 without it), but
+  # the githubusercontent CDNs are public and REJECT a tokened request with
+  # HTTP 400 — signed private-user-images URLs carry their own jwt instead.
+  # So the token goes only where it's actually required.
+  def credentials_for(url)
+    return [] unless url.start_with?('https://github.com/user-attachments/')
+
+    ['-H', "Authorization: token #{@token}"]
+  end
+
+  def extension_for(content_type, url)
+    from_header = EXTENSION_FOR_TYPE[content_type.split(';').first.to_s.strip]
+    return from_header if from_header
+
+    from_url = File.extname(URI.parse(url).path).downcase
+    from_url.empty? ? '.bin' : from_url
+  end
+
+  def relative(path)
+    "images/#{File.basename(path)}"
+  end
+end
+
+# One issue or pull request, rendered as a markdown file.
+class Item
+  def initialize(record, comments, attachments)
+    @record = record
+    @comments = comments
+    @attachments = attachments
+  end
+
+  def number = @record['number']
+  def title = @record['title'].to_s
+  def pull_request? = @record.key?('pull_request')
+  def kind = pull_request? ? 'pull' : 'issue'
+  def path = File.join(folder, filename)
+  def updated_at = @record['updated_at']
+
+  def state
+    return 'merged' if pull_request? && @record.dig('pull_request', 'merged_at')
+
+    @record['state']
+  end
+
+  # Finished work is archived a level down, so the folders you browse offline
+  # hold only what's still in flight.
+  def folder
+    base = pull_request? ? 'pulls' : 'issues'
+
+    state == 'open' ? base : File.join(base, 'closed')
+  end
+
+  def filename
+    slug = title.downcase.gsub(/[^a-z0-9]+/, '-').delete_prefix('-').delete_suffix('-')
+    "#{number}-#{slug[0, 60].to_s.delete_suffix('-')}.md"
+  end
+
+  def to_markdown
+    [front_matter, "# #{title}\n", summary_line, body_section, comments_section].compact.join("\n")
+  end
+
+  def to_manifest
+    { 'number' => number, 'title' => title, 'state' => state, 'kind' => kind,
+      'updated_at' => updated_at, 'path' => path }
+  end
+
+  private
+
+  def author = @record.dig('user', 'login')
+  def labels = @record['labels'].to_a.filter_map { |label| label['title'] || label['name'] }
+  def image_prefix = '../' * folder.split('/').size
+
+  def front_matter
+    <<~YAML
+      ---
+      number: #{number}
+      kind: #{kind}
+      state: #{state}
+      title: #{title.inspect}
+      author: #{author}
+      labels: [#{labels.join(', ')}]
+      created_at: #{@record['created_at']}
+      updated_at: #{updated_at}
+      url: #{@record['html_url']}
+      ---
+    YAML
+  end
+
+  def summary_line
+    parts = ["**#{state}**", "@#{author}", @record['created_at'].to_s[0, 10]]
+    parts << labels.map { |label| "`#{label}`" }.join(' ') if labels.any?
+    "#{parts.join(' · ')}\n"
+  end
+
+  def body_section
+    text = @record['body'].to_s.strip
+    text.empty? ? "_No description._\n" : "#{@attachments.localize(text, image_prefix)}\n"
+  end
+
+  def comments_section
+    return "\n---\n\n_No comments._\n" if @comments.empty?
+
+    sections = @comments.map do |comment|
+      heading = ["@#{comment.dig('user', 'login')}", comment['created_at'].to_s[0, 10]]
+      heading << "on `#{comment['path']}`" if comment['path']
+
+      "### #{heading.join(' · ')}\n\n#{@attachments.localize(comment['body'].to_s.strip, image_prefix)}\n"
+    end
+
+    "\n---\n\n## Comments (#{@comments.size})\n\n#{sections.join("\n")}"
+  end
+end
+
+# Builds and refreshes the local mirror.
+class Mirror
+  def initialize(full:, repo:, out:)
+    @full = full
+    @repo = repo || GitHub.current_repo
+    @root = self.class.resolve_root(out)
+    @github = GitHub.new(@repo)
+    @attachments = Attachments.new(File.join(@root, 'images'), @github.token)
+    @manifest = File.exist?(manifest_path) ? JSON.parse(File.read(manifest_path)) : { 'items' => {} }
+  end
+
+  # A relative --out hangs off the repo root, so running from a subdirectory
+  # still lands in the same place.
+  def self.resolve_root(out)
+    return File.expand_path(out) if out.start_with?('/', '~')
+
+    output, status = Open3.capture2('git', 'rev-parse', '--show-toplevel')
+    File.join(status.success? ? output.strip : Dir.pwd, out)
+  end
+
+  def run
+    started_at = Time.now.utc.iso8601
+    records = fetch_records
+    scope = @full || since.nil? ? 'items' : "changed since #{since}"
+    puts "#{@repo}: #{records.size} #{scope}"
+    return puts('nothing to do') if records.empty?
+
+    comments = fetch_comments(records)
+    write_items(records, comments)
+    write_index
+    @manifest['last_run'] = started_at
+    File.write(manifest_path, JSON.pretty_generate(@manifest))
+
+    report(records)
+  end
+
+  private
+
+  def since = @manifest['last_run']
+  def manifest_path = File.join(@root, '.manifest.json')
+
+  def fetch_records
+    params = { state: 'all' }
+    params[:since] = since if !@full && since
+    @github.list('issues', **params)
+  end
+
+  # A full run pulls every comment in two bulk calls; an incremental run asks
+  # per changed item, which is far fewer requests than re-pulling everything.
+  def fetch_comments(records)
+    return bulk_comments if @full || since.nil?
+
+    records.each_with_object(Hash.new { |hash, key| hash[key] = [] }) do |record, grouped|
+      number = record['number']
+      grouped[number] += @github.list("issues/#{number}/comments")
+      grouped[number] += @github.list("pulls/#{number}/comments") if record.key?('pull_request')
+      grouped[number].sort_by! { |comment| comment['created_at'] }
+    end
+  end
+
+  def bulk_comments
+    grouped = Hash.new { |hash, key| hash[key] = [] }
+
+    (@github.list('issues/comments') + @github.list('pulls/comments')).each do |comment|
+      url = comment['issue_url'] || comment['pull_request_url'] || comment['html_url']
+      number = url.to_s[%r{/(\d+)(?:#|$)}, 1]
+      grouped[number.to_i] << comment if number
+    end
+
+    grouped.each_value { |comments| comments.sort_by! { |comment| comment['created_at'] } }
+    grouped
+  end
+
+  def write_items(records, comments)
+    records.each do |record|
+      item = Item.new(record, comments[record['number']] || [], @attachments)
+      destination = File.join(@root, item.path)
+      FileUtils.mkdir_p(File.dirname(destination))
+
+      # Titles change and items move to closed/ when they land, so clear any
+      # stale file for this number wherever it currently sits.
+      Dir.glob("#{@root}/**/#{item.number}-*.md").each do |stale|
+        File.delete(stale) unless stale == destination
+      end
+
+      File.write(destination, item.to_markdown)
+      @manifest['items'][item.number.to_s] = item.to_manifest
+    end
+  end
+
+  def write_index
+    items = @manifest['items'].values.sort_by { |item| item['updated_at'].to_s }.reverse
+    open_items, closed_items = items.partition { |item| item['state'] == 'open' }
+
+    File.write(File.join(@root, 'README.md'), <<~MARKDOWN)
+      # #{@repo} — offline mirror
+
+      #{items.size} items · refreshed #{Time.now.utc.strftime('%Y-%m-%d %H:%M UTC')} ·
+      regenerate with `mirror-github-issues`
+
+      ## Open (#{open_items.size})
+
+      #{index_table(open_items)}
+
+      ## Closed (#{closed_items.size})
+
+      #{index_table(closed_items)}
+    MARKDOWN
+  end
+
+  def index_table(items)
+    return '_None._' if items.empty?
+
+    rows = items.map do |item|
+      "| [##{item['number']}](#{item['path']}) | #{item['kind']} | #{item['state']} | " \
+        "#{item['updated_at'].to_s[0, 10]} | #{item['title'].gsub('|', '\\|')} |"
+    end
+
+    (['| # | kind | state | updated | title |', '|---:|---|---|---|---|'] + rows).join("\n")
+  end
+
+  def report(records)
+    puts "wrote #{records.size} files, #{@attachments.downloaded_count} images linked -> #{@root}/"
+    return if @attachments.failures.empty?
+
+    puts "#{@attachments.failures.size} image(s) failed (left as remote URLs):"
+    @attachments.failures.each { |url| puts "  #{url}" }
+  end
+end
+
+options = {
+  full: false,
+  repo: nil,
+  out:  ENV['GITHUB_OFFLINE_DIR'] || '.github/offline'
+}
+
+OptionParser.new do |parser|
+  parser.banner = 'Usage: mirror-github-issues [options]'
+  parser.on('--full', 'Rebuild every file instead of only what changed')
+  parser.on('--repo OWNER/NAME', 'Mirror another repo (default: the one you are standing in)')
+  parser.on('--out DIR', 'Where to write (default: .github/offline, or $GITHUB_OFFLINE_DIR)')
+end.parse!(into: options)
+
+Mirror.new(**options).run
+
+# rubocop:enable Style/OneClassPerFile
