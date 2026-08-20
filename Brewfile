@@ -1,3 +1,5 @@
+# TKTK update to work with Homebrew 6's tap confirmation
+
 # tap is to add additional sources of brew packages
 # like "source" in a Gemfile
 # brew tap heroku/brew
