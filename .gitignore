@@ -1,1 +1,6 @@
 .DS_Store
+.zed/
+.zed/settings.json
+.claude/
+CLAUDE.md
+AGENT.md
