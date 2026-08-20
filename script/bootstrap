@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# TKTK fix all warnings/erros/lintings in this script
+
 # script/bootstrap: Setup a new laptop
 
 # Exit script if any commands return errors (if they exit with non-zero)
@@ -79,7 +81,7 @@ echo
 
 # Download strap.sh and run it
 echo '==> Downloading strap.sh script from github.com/MikeMcQuaid/strap…'
-curl https://raw.githubusercontent.com/MikeMcQuaid/strap/master/strap.sh -o strap.sh
+curl https://strap.mikemcquaid.com/strap.sh?text=1 -o strap.sh
 echo
 
 echo '==> Strapping your Mac…'
@@ -107,7 +109,7 @@ ruby-install -s $ruby_version
 echo
 
 # Add current ruby-version to the home directory
-echo $ruby_version > ~/.ruby-version 
+echo $ruby_version > ~/.ruby-version
 
 # Add chruby’s auto-switching to .zshrc, unless its already in there
 # Then, re-source the .zshrc for current user
@@ -141,10 +143,10 @@ echo
 
 # Ensure that the Postgresql service is running
 echo '==> Start Postgres service…'
-brew reinstall postgresql@17
-brew link postgresql@17
-echo 'export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"' >> ~/.zshrc
-brew services restart postgresql@17
+brew reinstall postgresql@18
+brew link postgresql@18
+echo 'export PATH="/opt/homebrew/opt/postgresql@18/bin:$PATH"' >> ~/.zshrc
+brew services restart postgresql@18
 
 # Wait until PostgreSQL has started up and is ready
 while ! pg_isready -q

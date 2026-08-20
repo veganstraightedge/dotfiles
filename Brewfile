@@ -68,6 +68,9 @@ cask 'zoom'
 # Slack
 # Transmit
 
+# TKTK: revist and update this list
+# TKTK: find/make a way to automate keeping this list up to date
+
 # mas is for Mac App Store apps
 # mas install [APP ID]
 # From https://flyingmeat.com/acorn
