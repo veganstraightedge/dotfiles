@@ -15,7 +15,7 @@ alias tcr="rspec && git commit -am working || git reset --hard"
 # misc
 alias random="head /dev/random | md5"
 alias tails="tail"
-alias yt="yt-dlp"
+alias yt="yt-dlp --cookies-from-browser=safari "
 
 # Rails
 alias b="bundle"
@@ -64,8 +64,6 @@ alias z="zed"
 alias Z="z"
 
 # heroku
-alias mix="cd ~/Developer/veganstraightedge/mixtape_club"
-alias poly=""
 alias h3="heroku local -p 3000"
 alias gdhm="git pull heroku master"
 alias gphm="git push heroku master"
@@ -82,8 +80,8 @@ alias d="git pull"
 alias master="gco master"
 alias main="gco main"
 alias u="git push"
-alias gbDD='git branch | grep -v "master" | xargs git branch -D'
-alias gbDDm='git branch | grep -v "main" | xargs git branch -D'
+alias gbDD='git branch | grep -v "main" | xargs git branch -D'
+alias gbDDm='git branch | grep -v "master" | xargs git branch -D'
 alias GDONE="master && gbDD && d && ./script/update"
 
 # go to my projects
