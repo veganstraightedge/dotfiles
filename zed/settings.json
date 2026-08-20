@@ -1,13 +1,4 @@
 // goes in ~/.config/zed/settings.json
-
-// Zed settings
-//
-// For information on how to configure Zed, see the Zed
-// documentation: https://zed.dev/docs/configuring-zed
-//
-// To see all of Zed's default settings without changing your
-// custom settings, run the `open default settings` command
-// from the command palette or from `Zed` application menu.
 // Zed settings
 //
 // For information on how to configure Zed, see the Zed
@@ -17,16 +8,127 @@
 // custom settings, run the `open default settings` command
 // from the command palette or from `Zed` application menu.
 {
-  "agent": {
-    "default_model": {
-      "provider": "zed.dev",
-      "model": "claude-3-7-sonnet-latest"
-    },
-    "version": "2"
+  "markdown_preview": {
+    // "limit_content_width": true
   },
-  "features": {
-    "edit_prediction_provider": "zed",
-    "edit_prediction_provider": "copilot"
+  "colorize_brackets": true,
+
+  // TKTK: doesn't seem to work correctly?
+  "cli_default_open_behavior": "new_window",
+
+  "collaboration_panel": {
+    "dock": "right",
+  },
+
+  "git_panel": {
+    "dock": "right",
+  },
+
+  "outline_panel": {
+    "dock": "right",
+  },
+
+  "which_key": {
+    "enabled": true,
+  },
+  "edit_predictions": {
+    "provider": "zed",
+  },
+  "agent_servers": {
+    "claude-acp": {
+      "default_config_options": {
+        "fast": false,
+        "effort": "default",
+        "model": "claude-fable-5[1m]",
+        "mode": "auto",
+      },
+      "type": "registry",
+    },
+  },
+  "session": {
+    "trust_all_worktrees": true,
+  },
+  "linked_edits": true,
+  "diagnostics": {
+    "inline": {
+      "enabled": true,
+    },
+    "lsp_pull_diagnostics": {
+      "enabled": true,
+    },
+  },
+  "completions": {
+    "lsp": true,
+  },
+  "git": {
+    "inline_blame": {
+      "show_commit_summary": false,
+      "enabled": false,
+    },
+  },
+  "tabs": {
+    "file_icons": true,
+  },
+  "project_panel": {
+    "default_width": 333.0,
+    "file_icons": true,
+    "folder_icons": true,
+    "indent_size": 20.0,
+    "auto_fold_dirs": false,
+    "bold_folder_labels": false,
+    "scrollbar": {
+      "show": "auto",
+    },
+    "diagnostic_badges": true,
+    "git_status_indicator": true,
+    "indent_guides": {
+      "show": "always",
+    },
+    "sort_mode": "mixed",
+    "dock": "right",
+    "hide_hidden": false,
+    "hide_root": false,
+    "entry_spacing": "comfortable",
+    "hide_gitignore": false,
+  },
+
+  "agent": {
+    "default_profile": "write",
+    "max_content_width": 1800.0,
+    "limit_content_width": false,
+    "flexible": false,
+    "dock": "left",
+    "tool_permissions": {
+      "default": "allow",
+    },
+    "favorite_models": [
+      {
+        "provider": "anthropic",
+        "model": "claude-fable-5",
+      },
+      {
+        "provider": "anthropic",
+        "model": "claude-opus-5",
+      },
+      {
+        "provider": "anthropic",
+        "model": "claude-opus-5-latest",
+      },
+      {
+        "provider": "zed.dev",
+        "model": "claude-opus-5",
+      },
+    ],
+
+    "message_editor_min_lines": 3,
+    "use_modifier_to_send": true,
+
+    "default_model": {
+      "effort": "high",
+      "enable_thinking": false,
+      "provider": "zed.dev",
+      "model": "claude-opus-5",
+    },
   },
 
   "autosave": "on_focus_change",
@@ -44,10 +146,14 @@
     "ss06": true,
     "ss07": true,
     "ss08": true,
-    "ss09": true
+    "ss09": true,
   },
   "buffer_font_size": 18,
+  "buffer_font_weight": 300,
   "ui_font_size": 18,
+
+  // Show less UI
+  // "toolbar": { "breadcrumbs": false, "quick_actions": false },
 
   "preferred_line_length": 120,
   "soft_wrap": "none",
@@ -55,41 +161,107 @@
 
   "theme": {
     "mode": "system",
-    "light": "One Light",
-    "dark": "Cobalt2"
-  },
-
-  "lsp": {
-    "solargraph": {
-      "initialization_options": {
-        "diagnostics": true,
-        "formatting": true
-      }
-    }
+    "light": "macOS Classic Light",
+    "dark": "Cobalt2",
   },
 
   "terminal": {
-    "option_as_meta": true
+    "dock": "left",
+    "option_as_meta": true,
+    "shell": {
+      "with_arguments": {
+        "program": "/bin/zsh",
+        "args": ["-i"],
+      },
+    },
   },
 
-  "semantic_index": {
-    "enabled": true
-  },
+  "languages": {
+    "Markdown": {
+      "format_on_save": "on",
+      "soft_wrap": "prefer_line",
+      "preferred_line_length": 110,
+    },
 
-  "language_overrides": {
+    // Use ruby-lsp as the primary language server and rubocop as the secondary.
     "Ruby": {
+      "language_servers": ["ruby-lsp", "rubocop", "!solargraph"],
       "format_on_save": "on",
       "formatter": {
         "external": {
           "command": "bundle",
-          "arguments": ["exec", "rubocop", "--fail-level", "error", "--autocorrect-all", "--stdin", "FILE", "--stderr"]
-        }
-      }
+          "arguments": ["exec", "rubocop", "--fail-level", "error", "--autocorrect", "--stdin", "FILE", "--stderr"],
+        },
+      },
     },
 
-    "Markdown": {
-      "soft_wrap": "preferred_line_length",
-      "preferred_line_length": 80
-    }
-  }
+    "Swift": {
+      "format_on_save": "on",
+      "formatter": {
+        "external": {
+          "command": "swift",
+          "arguments": ["format", "--assume-filename", "{buffer_path}"],
+        },
+      },
+    },
+
+    "XML": {
+      "tab_size": 2,
+      "hard_tabs": false,
+    },
+  },
+
+  "lsp": {
+    "markdownlint": {
+      "settings": {
+        "MD003": { "style": "atx" }, // # style headings
+        "MD004": { "style": "dash" }, // unordered lists
+        "MD007": { "indent": "2" }, // list indentation
+        "MD013": false, // allow long lines
+        "MD025": false, // allow multiple H1s
+        "MD026": { "punctuation": ".,;:!" }, // heading punctuation
+        "MD033": { "allowed_elements": ["audio", "video", "source", "figcaption"] },
+        "MD034": false, // allow bare URLs
+        "MD035": { "style": "---" }, // horizontal lists
+        "MD036": false, // allow bare URLs
+        "MD041": false, // allow non-H1 on first line
+        "MD046": { "style": "fenced" }, // code blocks
+        "MD060": { "style": "any" }, // table formatting
+      },
+    },
+
+    "rubocop": {
+      "initialization_options": {
+        "safeAutocorrect": false,
+      },
+    },
+
+    "ruby-lsp": {
+      "initialization_options": {
+        "enabledFeatures": {
+          "diagnostics": false,
+        },
+      },
+    },
+  },
+
+  // "language_models": {
+  //   "ollama": {
+  //     "api_url": "http://127.0.0.1:11434",
+  //     "available_models": [
+  //       {
+  //         "name": "qwen2.5-coder:0.5b",
+  //         "display_name": "Qwen2.5 Coder 0.5B",
+  //         "max_tokens": 32768,
+  //         "supports_images": false
+  //       },
+  //       {
+  //         "name": "qwen2.5-coder:1.5b",
+  //         "display_name": "Qwen2.5 Coder 1.5B",
+  //         "max_tokens": 32768,
+  //         "supports_images": false
+  //       }
+  //     ]
+  //   }
+  // }
 }
