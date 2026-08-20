@@ -1,0 +1,13 @@
+--database=postgresql
+--skip-test
+--skip-docker
+--skip-kamal
+--skip-thruster
+--skip-action-cable
+--skip-action-text
+--skip-devcontainer
+--skip-solid
+
+
+# GONE: https://raw.githubusercontent.com/veganstraightedge/dotfiles/main/rails/template.rb
+# TODO: https://github.com/veganstraightedge/foundational

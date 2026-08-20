@@ -1,1 +1,0 @@
---database=postgresql --skip-test --skip-docker --skip-kamal --skip-thruster --skip-action-cable --skip-devcontainer
